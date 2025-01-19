@@ -11,8 +11,6 @@ logger = logging.getLogger('aviator_bot')
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-print(f"Token: {TOKEN}")
-
 
 # Define the bot class
 class AviatorBot(commands.Bot):
@@ -25,6 +23,8 @@ class AviatorBot(commands.Bot):
         try:
             await self.load_extension('cogs.weather')
             print("Weather cog loaded")
+            await self.load_extension('cogs.airport')
+            print("Airport cog loaded")
             await self.tree.sync()
             print("Command tree synced")
         except Exception as e:
@@ -34,6 +34,4 @@ class AviatorBot(commands.Bot):
 bot = AviatorBot()
 
 if __name__ == '__main__':
-    print(f"Token: {TOKEN}")
-
     bot.run(TOKEN)
