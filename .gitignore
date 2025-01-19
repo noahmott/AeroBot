@@ -86,8 +86,4 @@ wheels/
 
 # Backup files
 *.bak
-*~
-
-# Heroku files
-Procfile
-runtime.txt 
+*~ 
