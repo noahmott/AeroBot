@@ -1,4 +1,4 @@
-# AviatorBot
+# AeroBot
 
 A Discord bot designed for aviation enthusiasts, providing weather updates and airport information.
 
