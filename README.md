@@ -1,5 +1,5 @@
 # AeroBot
-<p align="center">
+<p align="left">
   <img src="583a204f-875b-46f3-8068-2da0b4d96195.webp" alt="AviatorBot Logo" width="200"/>
 </p>
 A Discord bot designed for aviation enthusiasts, providing weather updates and airport information.
