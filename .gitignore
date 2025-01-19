@@ -24,8 +24,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-runtime.txt
-Procfile
+
+
 # Virtual Environment
 venv/
 env/
@@ -86,4 +86,8 @@ wheels/
 
 # Backup files
 *.bak
-*~ 
+*~
+
+# Heroku files
+Procfile
+runtime.txt 
