@@ -16,14 +16,14 @@ class Weather(commands.Cog):
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
 
     async def get_openai_translation(self, metar: str, taf: str) -> str:
-        """Uses OpenAI API to translate METAR and TAF into plain English."""
+        """Uses OpenAI API to translate METAR and TAF into layperson-friendly weather descriptions."""
         prompt = f"""
-        Translate the following METAR and TAF reports into layperson-friendly weather descriptions:
+        Translate the following METAR and TAF reports into simple, concise layperson-friendly weather descriptions:
 
         METAR: {metar if metar else 'No METAR available'}
         TAF: {taf if taf else 'No TAF available'}
 
-        Provide a structured and concise response describing the weather conditions.
+        Keep the translation under 900 characters to ensure it fits in a Discord embed field.
         """
 
         if not self.openai_api_key:
@@ -33,19 +33,20 @@ class Weather(commands.Cog):
         try:
             client = openai.OpenAI(api_key=self.openai_api_key)
             response = client.chat.completions.create(
-                model="gpt-4",  # Use "gpt-3.5-turbo" for faster responses
+                model="gpt-3.5-turbo",  # Faster response time
                 messages=[
-                    {"role": "system", "content": "You are an aviation weather expert translating reports into plain language."},
+                    {"role": "system", "content": "You are an aviation weather expert who explains METAR and TAF in simple terms."},
                     {"role": "user", "content": prompt}
-                ]
+                ],
+                timeout=10
             )
 
-            translated_text = response.choices[0].message.content
-            logger.info(f"✅ OpenAI API Response: {translated_text[:100]}")  # Log first 100 chars
+            translated_text = response.choices[0].message.content.strip()
+            logger.info(f"✅ OpenAI API Response (truncated): {translated_text[:100]}...")
 
-            # 🔥 Truncate to Discord's max field length (1024 characters)
-            if len(translated_text) > 1024:
-                translated_text = translated_text[:1020] + "..."  # Append "..." if truncated
+            # 🔥 Truncate to ensure it fits within Discord's 1024 character limit
+            if len(translated_text) > 900:
+                translated_text = translated_text[:900] + "..."
 
             return translated_text
 
@@ -93,14 +94,19 @@ class Weather(commands.Cog):
                 # Get OpenAI translation
                 translated_weather = await self.get_openai_translation(raw_metar, raw_taf)
 
+                # 🔥 Ensure truncation for all fields
+                raw_metar = raw_metar[:1020] + "..." if len(raw_metar) > 1024 else raw_metar
+                raw_taf = raw_taf[:1020] + "..." if len(raw_taf) > 1024 else raw_taf
+                translated_weather = translated_weather[:1020] + "..." if len(translated_weather) > 1024 else translated_weather
+
                 # Create embed response
                 embed = discord.Embed(
                     title=f"Weather Information for {airport_code}",
                     color=discord.Color.blue(),
                     timestamp=datetime.now(timezone.utc)
                 )
-                embed.add_field(name="METAR", value=f"```{raw_metar[:1020] + '...' if len(raw_metar) > 1024 else raw_metar}```", inline=False)
-                embed.add_field(name="TAF", value=f"```{raw_taf[:1020] + '...' if len(raw_taf) > 1024 else raw_taf}```", inline=False)
+                embed.add_field(name="METAR", value=f"```{raw_metar}```", inline=False)
+                embed.add_field(name="TAF", value=f"```{raw_taf}```", inline=False)
                 embed.add_field(name="Plain English Translation", value=f"```{translated_weather}```", inline=False)
 
                 await interaction.followup.send(embed=embed)
