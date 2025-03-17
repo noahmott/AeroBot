@@ -7,14 +7,13 @@ import openai
 import os
 from datetime import datetime, timezone
 
-# Setup logging
 logger = logging.getLogger('aviator_bot.weather')
 
 class Weather(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.weather_api_url = "https://aviationweather.gov/api/data"
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")  # Fetch from Heroku config vars
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
 
     async def get_openai_translation(self, metar: str, taf: str) -> str:
         """Uses OpenAI API to translate METAR and TAF into plain English."""
@@ -31,14 +30,10 @@ class Weather(commands.Cog):
             logger.error("🚨 OpenAI API key is missing! Check Heroku config vars.")
             return "Error: Missing OpenAI API key."
 
-        logger.info("📡 Sending request to OpenAI API...")
-
         try:
-            # Use OpenAI's updated API client
             client = openai.OpenAI(api_key=self.openai_api_key)
-
             response = client.chat.completions.create(
-                model="gpt-4",  # Use "gpt-3.5-turbo" if you want faster responses
+                model="gpt-4",  # Use "gpt-3.5-turbo" for faster responses
                 messages=[
                     {"role": "system", "content": "You are an aviation weather expert translating reports into plain language."},
                     {"role": "user", "content": prompt}
@@ -47,6 +42,11 @@ class Weather(commands.Cog):
 
             translated_text = response.choices[0].message.content
             logger.info(f"✅ OpenAI API Response: {translated_text[:100]}")  # Log first 100 chars
+
+            # 🔥 Truncate to Discord's max field length (1024 characters)
+            if len(translated_text) > 1024:
+                translated_text = translated_text[:1020] + "..."  # Append "..." if truncated
+
             return translated_text
 
         except Exception as e:
@@ -99,8 +99,8 @@ class Weather(commands.Cog):
                     color=discord.Color.blue(),
                     timestamp=datetime.now(timezone.utc)
                 )
-                embed.add_field(name="METAR", value=f"```{raw_metar}```", inline=False)
-                embed.add_field(name="TAF", value=f"```{raw_taf}```", inline=False)
+                embed.add_field(name="METAR", value=f"```{raw_metar[:1020] + '...' if len(raw_metar) > 1024 else raw_metar}```", inline=False)
+                embed.add_field(name="TAF", value=f"```{raw_taf[:1020] + '...' if len(raw_taf) > 1024 else raw_taf}```", inline=False)
                 embed.add_field(name="Plain English Translation", value=f"```{translated_weather}```", inline=False)
 
                 await interaction.followup.send(embed=embed)
