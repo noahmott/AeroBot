@@ -15,15 +15,14 @@ class Weather(commands.Cog):
         self.weather_api_url = "https://aviationweather.gov/api/data"
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    async def get_openai_translation(self, metar: str, taf: str) -> str:
-        """Uses OpenAI API to translate METAR and TAF into layperson-friendly weather descriptions."""
+    async def get_openai_translation(self, weather_report: str, report_type: str) -> str:
+        """Uses OpenAI API to translate a METAR or TAF report into plain English."""
         prompt = f"""
-        Translate the following METAR and TAF reports into simple, concise layperson-friendly weather descriptions:
+        Translate the following {report_type} aviation weather report into a simple, concise layperson-friendly weather description:
 
-        METAR: {metar if metar else 'No METAR available'}
-        TAF: {taf if taf else 'No TAF available'}
+        {report_type}: {weather_report}
 
-        Keep the translation under 900 characters to ensure it fits in a Discord embed field.
+        Keep the translation under 900 characters to fit in a Discord embed field.
         """
 
         if not self.openai_api_key:
@@ -44,7 +43,7 @@ class Weather(commands.Cog):
             translated_text = response.choices[0].message.content.strip()
             logger.info(f"✅ OpenAI API Response (truncated): {translated_text[:100]}...")
 
-            # 🔥 Truncate to ensure it fits within Discord's 1024 character limit
+            # 🔥 Ensure truncation to fit within Discord's 1024 character limit
             if len(translated_text) > 900:
                 translated_text = translated_text[:900] + "..."
 
@@ -87,16 +86,26 @@ class Weather(commands.Cog):
                     else:
                         taf_data = await resp.json()
 
-                # Extract raw reports
-                raw_metar = metar_data[0].get("rawOb", "No METAR available") if metar_data else "No METAR available"
-                raw_taf = taf_data[0].get("rawTAF", "No TAF available") if taf_data else "No TAF available"
+                # Extract raw METAR and TAF reports
+                raw_metar = metar_data[0].get("rawOb", None) if metar_data else None
+                raw_taf = taf_data[0].get("rawTAF", None) if taf_data else None
 
-                # Get OpenAI translation
-                translated_weather = await self.get_openai_translation(raw_metar, raw_taf)
+                # **Prioritize METAR, fallback to TAF if METAR is unavailable**
+                if raw_metar:
+                    translated_weather = await self.get_openai_translation(raw_metar, "METAR")
+                    selected_report = raw_metar
+                    report_type = "METAR"
+                elif raw_taf:
+                    translated_weather = await self.get_openai_translation(raw_taf, "TAF")
+                    selected_report = raw_taf
+                    report_type = "TAF"
+                else:
+                    translated_weather = "No weather report available."
+                    selected_report = "No report available."
+                    report_type = "None"
 
-                # 🔥 Ensure truncation for all fields
-                raw_metar = raw_metar[:1020] + "..." if len(raw_metar) > 1024 else raw_metar
-                raw_taf = raw_taf[:1020] + "..." if len(raw_taf) > 1024 else raw_taf
+                # 🔥 Ensure truncation for the selected report
+                selected_report = selected_report[:1020] + "..." if len(selected_report) > 1024 else selected_report
                 translated_weather = translated_weather[:1020] + "..." if len(translated_weather) > 1024 else translated_weather
 
                 # Create embed response
@@ -105,8 +114,7 @@ class Weather(commands.Cog):
                     color=discord.Color.blue(),
                     timestamp=datetime.now(timezone.utc)
                 )
-                embed.add_field(name="METAR", value=f"```{raw_metar}```", inline=False)
-                embed.add_field(name="TAF", value=f"```{raw_taf}```", inline=False)
+                embed.add_field(name=f"{report_type}", value=f"```{selected_report}```", inline=False)
                 embed.add_field(name="Plain English Translation", value=f"```{translated_weather}```", inline=False)
 
                 await interaction.followup.send(embed=embed)
