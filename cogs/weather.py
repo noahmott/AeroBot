@@ -7,6 +7,7 @@ import openai
 import os
 from datetime import datetime, timezone
 
+# Setup logging
 logger = logging.getLogger('aviator_bot.weather')
 
 class Weather(commands.Cog):
@@ -27,20 +28,30 @@ class Weather(commands.Cog):
         """
 
         if not self.openai_api_key:
-            logger.error("OpenAI API key is missing. Ensure it is set in Heroku config vars.")
+            logger.error("🚨 OpenAI API key is missing! Check Heroku config vars.")
             return "Error: Missing OpenAI API key."
 
+        logger.info("📡 Sending request to OpenAI API...")
+
         try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[{"role": "system", "content": "You are an aviation weather expert translating reports into plain language."},
-                          {"role": "user", "content": prompt}],
-                api_key=self.openai_api_key
+            # Use OpenAI's updated API client
+            client = openai.OpenAI(api_key=self.openai_api_key)
+
+            response = client.chat.completions.create(
+                model="gpt-4",  # Use "gpt-3.5-turbo" if you want faster responses
+                messages=[
+                    {"role": "system", "content": "You are an aviation weather expert translating reports into plain language."},
+                    {"role": "user", "content": prompt}
+                ]
             )
-            return response["choices"][0]["message"]["content"]
+
+            translated_text = response.choices[0].message.content
+            logger.info(f"✅ OpenAI API Response: {translated_text[:100]}")  # Log first 100 chars
+            return translated_text
+
         except Exception as e:
-            logger.error(f"OpenAI API error: {e}")
-            return "Could not translate weather data at this time."
+            logger.error(f"❌ OpenAI API Error: {e}")
+            return "Error: Unable to fetch translation."
 
     @app_commands.command(
         name="weather",
@@ -95,7 +106,7 @@ class Weather(commands.Cog):
                 await interaction.followup.send(embed=embed)
 
             except Exception as e:
-                logger.error(f"Error in weather command: {e}")
+                logger.error(f"❌ Error in weather command: {e}")
                 await interaction.followup.send("An error occurred while fetching weather information.")
 
 async def setup(bot):
