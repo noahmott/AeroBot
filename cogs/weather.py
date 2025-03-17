@@ -32,7 +32,7 @@ class Weather(commands.Cog):
         try:
             client = openai.OpenAI(api_key=self.openai_api_key)
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are an aviation weather expert who explains METAR and TAF in simple terms without introductions."},
                     {"role": "user", "content": prompt}
@@ -88,14 +88,14 @@ class Weather(commands.Cog):
 
                 # Extract raw METAR and TAF reports
                 raw_metar = metar_data[0].get("rawOb", None) if metar_data else None
-                raw_taf = taf_data[0].get("rawTAF", None) if taf_data else None
+                raw_taf = taf_data[0].get("rawTAF", "No TAF available") if taf_data else "No TAF available"
 
                 # **Prioritize METAR, fallback to TAF if METAR is unavailable**
                 if raw_metar:
                     translated_weather = await self.get_openai_translation(raw_metar, "METAR")
                     selected_report = raw_metar
                     report_type = "METAR"
-                elif raw_taf:
+                elif raw_taf and raw_taf != "No TAF available":
                     translated_weather = await self.get_openai_translation(raw_taf, "TAF")
                     selected_report = raw_taf
                     report_type = "TAF"
@@ -107,6 +107,7 @@ class Weather(commands.Cog):
                 # Ensure truncation for the selected report
                 selected_report = selected_report[:1020] + "..." if len(selected_report) > 1024 else selected_report
                 translated_weather = translated_weather[:1020] + "..." if len(translated_weather) > 1024 else translated_weather
+                raw_taf = raw_taf[:1020] + "..." if len(raw_taf) > 1024 else raw_taf  # Ensure TAF fits in the embed
 
                 # Create embed response
                 embed = discord.Embed(
@@ -116,6 +117,7 @@ class Weather(commands.Cog):
                 )
                 embed.add_field(name=f"{report_type}", value=f"```{selected_report}```", inline=False)
                 embed.add_field(name="Plain English Translation", value=f"```{translated_weather}```", inline=False)
+                embed.add_field(name="TAF Report", value=f"```{raw_taf}```", inline=False)  # ✅ Always include TAF
 
                 await interaction.followup.send(embed=embed)
 
