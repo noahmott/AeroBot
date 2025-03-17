@@ -18,11 +18,11 @@ class Weather(commands.Cog):
     async def get_openai_translation(self, weather_report: str, report_type: str) -> str:
         """Uses OpenAI API to translate a METAR or TAF report into plain English."""
         prompt = f"""
-        Translate the following {report_type} aviation weather report into a simple, concise layperson-friendly weather description:
+        Convert the following {report_type} aviation weather report into a concise, layperson-friendly weather summary.
 
         {report_type}: {weather_report}
 
-        Keep the translation under 900 characters to fit in a Discord embed field.
+        Do not include any greetings, introductions, or explanations—just provide the summary in plain English.
         """
 
         if not self.openai_api_key:
@@ -32,9 +32,9 @@ class Weather(commands.Cog):
         try:
             client = openai.OpenAI(api_key=self.openai_api_key)
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",  # Faster response time
+                model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are an aviation weather expert who explains METAR and TAF in simple terms."},
+                    {"role": "system", "content": "You are an aviation weather expert who explains METAR and TAF in simple terms without introductions."},
                     {"role": "user", "content": prompt}
                 ],
                 timeout=10
@@ -43,7 +43,7 @@ class Weather(commands.Cog):
             translated_text = response.choices[0].message.content.strip()
             logger.info(f"✅ OpenAI API Response (truncated): {translated_text[:100]}...")
 
-            # 🔥 Ensure truncation to fit within Discord's 1024 character limit
+            # Ensure truncation to fit within Discord's 1024 character limit
             if len(translated_text) > 900:
                 translated_text = translated_text[:900] + "..."
 
@@ -104,7 +104,7 @@ class Weather(commands.Cog):
                     selected_report = "No report available."
                     report_type = "None"
 
-                # 🔥 Ensure truncation for the selected report
+                # Ensure truncation for the selected report
                 selected_report = selected_report[:1020] + "..." if len(selected_report) > 1024 else selected_report
                 translated_weather = translated_weather[:1020] + "..." if len(translated_weather) > 1024 else translated_weather
 
