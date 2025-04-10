@@ -18,18 +18,34 @@ class Weather(commands.Cog):
     async def get_openai_translation(self, report: str, report_type: str) -> str:
         """Uses OpenAI API to translate a METAR or TAF report into plain English."""
         prompt = f"""
-        Convert the following {report_type} aviation weather report into a concise, layperson-friendly weather summary.
+        Convert the following {report_type} aviation weather report into a structured, easy-to-read summary.
         
         {report_type}: {report}
 
-        Important notes:
-        - Do NOT include introductions, greetings, or explanations.
-        - Keep the summary structured and factual.
-        - Always mention that all times are in UTC.
+        Requirements:
+        1. Format the response in these sections:
+           - Time (always specify UTC)
+           - Temperature (show both °C and °F)
+           - Wind
+           - Visibility
+           - Sky Conditions
+           - Other Conditions (if any)
+        2. Convert all temperatures to include both Celsius and Fahrenheit
+        3. Use bullet points (•) for each section
+        4. Keep it concise and factual
+        5. Do NOT include any introductions or explanations
+        6. If any section has no data, skip it entirely
+
+        Example format:
+        • Time (UTC): 1200Z
+        • Temperature: 20°C (68°F)
+        • Wind: From 180° at 10 knots
+        • Visibility: 10 statute miles
+        • Sky Conditions: Few clouds at 3000ft
         """
 
         if not self.openai_api_key:
-            logger.error("🚨 OpenAI API key is missing! Check Heroku config vars.")
+            logger.error("🚨 OpenAI API key is missing! Check environment variables.")
             return "Error: Missing OpenAI API key."
 
         try:
@@ -37,16 +53,22 @@ class Weather(commands.Cog):
             response = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You are an aviation weather expert who explains METAR and TAF in simple terms without introductions."},
+                    {"role": "system", "content": "You are an aviation weather expert who provides structured, consistent weather summaries. Always use bullet points and include both °C and °F temperatures."},
                     {"role": "user", "content": prompt}
                 ],
+                temperature=0.7,  # Add some variability while maintaining structure
+                max_tokens=500,
                 timeout=10
             )
 
             translated_text = response.choices[0].message.content.strip()
             logger.info(f"✅ OpenAI API Response (truncated): {translated_text[:100]}...")
 
-            # Truncate if needed to fit Discord's 1024 character limit
+            # Ensure the response starts with a bullet point
+            if not translated_text.startswith('•'):
+                translated_text = '• ' + translated_text
+
+            # Truncate if needed to fit Discord's character limit
             if len(translated_text) > 900:
                 translated_text = translated_text[:900] + "..."
 
